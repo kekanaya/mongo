@@ -3,8 +3,12 @@ package com.example.mongo.service;
 import com.example.mongo.model.JobFile;
 import com.example.mongo.repositories.JobRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.ModelMap;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.ArrayList;
@@ -19,16 +23,49 @@ public class JobService {
     private JobRepository repository;
     @Autowired
     private SequenceGeneratorService sequenceGeneratorService;
+    @Autowired
+    MongoTemplate mongoTemplate;
 
-        public List<JobFile> retrieveJobs(String user) {
-            List<JobFile> jobs = repository.findByName(user);
-            return jobs;
-        }
+    public List<JobFile> retrieveJobs(String user) {
+        List<JobFile> jobs = repository.findByName(user);
+        return jobs;
+    }
 
-        public JobFile retrieveJobById(int id) {
-            JobFile job = repository.findById(id);
-            return job;
+    public List<JobFile> retrieveAllJobs() {
+        List<JobFile> jobs = repository.findAll();
+        return jobs;
+    }
+
+    public JobFile retrieveJobById(int id) {
+        JobFile job = repository.findById(id);
+        return job;
+    }
+
+//    public List<JobFile> retrieveFilteredJobs(String name, String jobName, Boolean success, Date runDate) {
+//        List<JobFile> jobs = repository.findByNameAndJobNameAndSuccessAndRunDate(name, jobName, success, runDate);
+//        return jobs;
+//    }
+
+    public List<JobFile> retrieveFilteredJobs(String name, String jobName, Boolean success, Date runDate) {
+        Query query = new Query();
+        if (!StringUtils.isEmpty(name)) {
+            query.addCriteria(Criteria.where("name").is(name));
         }
+        if (!StringUtils.isEmpty(jobName)) {
+            query.addCriteria(Criteria.where("jobName").is(jobName));
+        }
+        if (success != null) {
+            query.addCriteria(Criteria.where("success").is(success));
+        }
+        if (runDate != null) {
+            Calendar c = Calendar.getInstance();
+            c.setTime(runDate);
+            c.add(Calendar.DATE, 1);
+            Date nextDay = c.getTime();
+            query.addCriteria(Criteria.where("runDate").gt(runDate).lt(nextDay));
+        }
+        return mongoTemplate.find(query, JobFile.class);
+    }
 
     public void rerunJob(int id) {
         //actual situation - job run back end logic should be called here
